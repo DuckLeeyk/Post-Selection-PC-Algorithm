@@ -1,3 +1,8 @@
+"""
+A 10-variable simulation example for resampled PC algorithm.
+"""
+
+
 import numpy as np
 from model import ResampledPC
 
