@@ -19,8 +19,8 @@ def generate_data_10vars(n=2000, random_state=12345):
          X6 ~ X1
          X7 ~ X2
          X8 ~ X3
-    层2: X9 ~ X4, X5, X6
-         X10 ~ X7, X8
+    层2: X9 ~ X7, X8
+         X10 ~ X4, X5, X6
 
     其中, 每个变量 = 线性组合 + 独立N(0,1)的噪声
     """
