@@ -299,6 +299,11 @@ class ResampledPC(PCAlgorithm):
 
         **实际中可用更多工具(如 networkx)辨别CPDAG->所有DAG，以获取最小调整集或父集等。**
         """
+
+        # 转换为0-index
+        exposure = exposure - 1
+        outcome = outcome - 1
+
         if len(self.cpdags) == 0:
             raise ValueError("尚未发现任何有效CPDAG，请先调用 fit_resampling().")
 
