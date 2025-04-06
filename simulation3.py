@@ -79,6 +79,6 @@ print(f"共有 {len(valid_cpdags)} 个有效CPDAG 保留下来.")
 # Step C: 如果存在有效CPDAG, 则尝试对 (6->10) 聚合区间
 final_ci = rpc.aggregate_confidence_intervals(exposure=6, outcome=10)
 if final_ci is not None:
-    print(f"(exposure=0 -> outcome=9) 的聚合区间: \n {final_ci}")
+    print(f"(exposure=6 -> outcome=10) 的聚合区间: \n {final_ci}")
 else:
     print("未能获取聚合区间，因为没有有效CPDAG。请考虑增大 alpha 或增大数据量等。")
