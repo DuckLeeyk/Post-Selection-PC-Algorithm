@@ -1,7 +1,13 @@
+"""
+PC Algorithm, and Resampled PC Algorithm Implementation
+"""
+
+
 import numpy as np
-from itertools import combinations
-from math import log, sqrt
 from copy import deepcopy
+from math import log, sqrt
+from scipy.stats import norm
+from itertools import combinations
 
 
 class PCAlgorithm:
@@ -225,4 +231,246 @@ class PCAlgorithm:
         """
         self.G[i, j] = 1
         self.G[j, i] = 0
+
+
+class ResampledPC(PCAlgorithm):
+    """
+    在基础 PC 算法上，实现文档中提出的 Step 1 (重采样和筛选) 与 Step 2 (聚合)。
+    """
+
+    def __init__(self, X, alpha=0.05, ordering=None, M=100, shrink_tau=1.0, gamma=0.05):
+        """
+        X: 数据矩阵
+        alpha: 原始显著性水平 (如0.05)
+        ordering: 时序信息
+        M: 重采样运行 PC 算法的次数
+        shrink_tau: 收缩参数 τ(M), 用于调节检验阈值
+        gamma: 用于最后(1-gamma)%置信区间
+        """
+        super().__init__(X, alpha, ordering)
+        self.M = M
+        self.shrink_tau = shrink_tau
+        self.gamma = gamma
+
+        # 存储多次运行的结果(可能含无效CPDAG)
+        self.cpdags = []
+        # 最终保留下来的有效CPDAG的索引集合
+        self.valid_indices = []
+
+    def fit_resampling(self):
+        """
+        实现 Step 1: 做 M 次(重采样) PC 算法，并筛除无效CPDAG。
+        返回所有保留的有效 CPDAG 列表 self.cpdags。
+        """
+        self.cpdags = []  # 清空
+        for m in range(self.M):
+            # 每次都重新创建一个 PC 对象，但在其中对统计量施加重采样
+            pc_obj = PCAlgorithmWithResampledTests(
+                X=self.X, alpha=self.alpha, ordering=self.ordering,
+                shrink_tau=self.shrink_tau
+            )
+            # 拟合(执行PC)
+            G_m = pc_obj.fit()
+            # 判断结果是否为“有效CPDAG”
+            if self._is_valid_cpdag(G_m):
+                self.cpdags.append(G_m)
+
+        # 最后保留的索引集合
+        self.valid_indices = list(range(len(self.cpdags)))
+        return self.cpdags
+
+    def aggregate_confidence_intervals(self, exposure, outcome):
+        """
+        实现 Step 2: 聚合多个有效 CPDAG 的置信区间 (union of intervals).
+
+        参数:
+        -------
+        exposure: int, 暴露(自变量)的索引 i
+        outcome: int,  结果(因变量)的索引 j
+
+        假设我们要得到对真因果效应 beta_i,j(G) 的一个(1 - gamma)% 的区间，
+        就需要对每个保留的 CPDAG, 解析它所代表的所有DAG, 再用某种方式对 beta 做 back-door 调整估计。
+
+        这里仅示例一个非常简化的处理思路:
+          - 假设 CPDAG ~ DAG (不做完整等价类列举)
+          - 用线性回归(包括所有“可被视作父节点”的变量) 做回归，拿到该DAG下的beta估计
+          - 再给出置信区间
+          - 最终做并集
+
+        **实际中可用更多工具(如 networkx)辨别CPDAG->所有DAG，以获取最小调整集或父集等。**
+        """
+        if len(self.cpdags) == 0:
+            raise ValueError("尚未发现任何有效CPDAG，请先调用 fit_resampling().")
+
+        # 准备一个列表，存放所有区间
+        intervals = []
+
+        # 对每个保留CPDAG:
+        for idx in self.valid_indices:
+            G_m = self.cpdags[idx]
+
+            # 这里简单假设 CPDAG 已经是(唯一)有向无环图 (实际上可能不是唯一)
+            # 找到 exposure 的“父节点”集合(含 exposure 自身可被看作调节后)
+            # 仅做演示: 这里我们取 Pai(G_m, j) 并包含 i (exposure)
+            # 真实中需分析 DAG 的结构
+            parents_of_outcome = list(np.where(G_m[:, outcome] == 1)[0])
+            # 若 不在时序未来层，则也可能视为父节点(具体视情况).
+            # 这里只是个简化示例
+
+            # 组装回归设计矩阵, X_i 及 parents_of_outcome
+            # 确保不重复
+            regressors = set(parents_of_outcome + [exposure])
+            X_reg = self.X[:, list(regressors)]
+            y_reg = self.X[:, outcome]
+            # 用线性回归估计
+            beta_hat, se_hat = self._estimate_linear_effect(X_reg, y_reg, exposure_idx=list(regressors).index(exposure))
+
+            # 在正态假设下，(1-gamma)% 置信区间 ~ beta_hat +- z_{1-gamma/2} * se_hat
+            z_val = norm.ppf(1 - self.gamma / 2)
+            interval = (beta_hat - z_val * se_hat, beta_hat + z_val * se_hat)
+            intervals.append(interval)
+
+        # 取并集(最小左端, 最大右端)
+        left_bounds = [itv[0] for itv in intervals]
+        right_bounds = [itv[1] for itv in intervals]
+        final_interval = (min(left_bounds), max(right_bounds))  # union
+
+        return final_interval
+
+    # ---------- 辅助函数 ----------
+
+    def _is_valid_cpdag(self, G):
+        """
+        检查一个邻接矩阵 G 是否“有效CPDAG”，即无向边只能是 -，有向边无环且无双箭头。
+        此处仅做一个简化判断：不含双向箭头 & 检查是否有向环(若有环则非有效).
+
+        真正严谨的CPDAG判断，需要更多完整检查，这里只是示例。
+        """
+        d = G.shape[0]
+
+        # 无双向箭头
+        for i in range(d):
+            for j in range(i + 1, d):
+                if G[i, j] == 1 and G[j, i] == 1:
+                    return False  # 存在双向
+        # 无环
+        # 可用 DFS 或拓扑排序检查是否有向环
+        if self._has_cycle(G):
+            return False
+
+        return True
+
+    def _has_cycle(self, G):
+        """
+        检查有向图 G 是否存在环(经典 DFS 拓扑排序检测)。
+        """
+        d = G.shape[0]
+        visited = [0] * d  # 0=未访问, 1=访问中, 2=访问完
+
+        def dfs(node):
+            visited[node] = 1
+            for nxt in range(d):
+                if G[node, nxt] == 1:  # node->nxt
+                    if visited[nxt] == 1:
+                        return True  # 找到回环
+                    if visited[nxt] == 0 and dfs(nxt):
+                        return True
+            visited[node] = 2
+            return False
+
+        for v in range(d):
+            if visited[v] == 0:
+                if dfs(v):
+                    return True
+        return False
+
+    def _estimate_linear_effect(self, X_reg, y_reg, exposure_idx):
+        """
+        假设 y_reg = X_reg * Beta + eps, 其中 Beta中 exposure对应一列的系数为目标效应.
+        返回该系数的估计值和标准误(简单 OLS).
+
+        exposure_idx: 指示 X_reg中哪一列是 exposure.
+        """
+        # X_reg形状 [n, p], y_reg形状 [n, ]
+        n, p = X_reg.shape
+        # OLS估计 = (X'X)^-1 X'y
+        # 估计协方差矩阵 Var(Beta_hat) ~ sigma^2 (X'X)^-1
+        # sigma^2 = RSS/(n-p)
+
+        # 增加截距
+        ones = np.ones((n, 1))
+        X_ = np.hstack([ones, X_reg])  # [n, p+1]
+        # Beta_hat (p+1, )
+        inv_ = np.linalg.inv(X_.T @ X_)
+        Beta_hat = inv_ @ (X_.T @ y_reg)
+
+        # 残差
+        y_pred = X_ @ Beta_hat
+        resid = y_reg - y_pred
+        RSS = np.sum(resid ** 2)
+        sigma2 = RSS / (n - p - 1)  # p+1含截距
+
+        cov_Beta_hat = sigma2 * inv_
+
+        # 曝光变量所在的系数是 Beta_hat[1 + exposure_idx]
+        bhat = Beta_hat[1 + exposure_idx]
+        se_bhat = np.sqrt(cov_Beta_hat[1 + exposure_idx, 1 + exposure_idx])
+
+        return bhat, se_bhat
+
+
+class PCAlgorithmWithResampledTests(PCAlgorithm):
+    """
+    重写父类中的 _conditional_indep_test，使用"一次高斯扰动"对 Z 统计量做重采样，
+    并且结合文档(1)式中的“阈值收缩”。
+    """
+
+    def __init__(self, X, alpha=0.05, ordering=None, shrink_tau=1.0):
+        super().__init__(X, alpha, ordering)
+        self.shrink_tau = shrink_tau
+        # 下面这个是按文档中所说 L*(d(d-1)/2) 之类的上界,
+        # 在此演示中，只是将其当作一起调节阈值 z_alpha
+        # 您可以根据文中公式自行设定, 这里简单地设置 L=1.
+        self.L = 1
+
+    def _conditional_indep_test(self, i, j, S):
+        """
+        在计算出 Fisher's Z 后，随机扰动一次:
+          Z(sampled) = Z(obs) + N(0,1)
+        再比较  |Z(sampled)| > tau(M)*z_{alpha/2} 的阈值
+        """
+        # 先用与父类同样的方法得到observed Z值(不直接做p-value对比)
+        if len(S) == 0:
+            corr = np.corrcoef(self.X[:, i], self.X[:, j])[0, 1]
+        else:
+            XS = self.X[:, list(S)]
+            Xi = self.X[:, i]
+            Xj = self.X[:, j]
+
+            ones = np.ones((self.n, 1))
+            XS_ = np.hstack([ones, XS])
+            inv_ = np.linalg.inv(XS_.T @ XS_)
+            P_S = XS_ @ inv_ @ XS_.T
+
+            ri = Xi - P_S @ Xi
+            rj = Xj - P_S @ Xj
+            corr = np.corrcoef(ri, rj)[0, 1]
+
+        # 防止数值问题
+        if abs(corr) > 0.999999:
+            corr = 0.999999 * np.sign(corr)
+
+        z_obs = 0.5 * log((1 + corr) / (1 - corr)) if abs(corr) < 1 else np.inf
+        df = self.n - len(S) - 3
+        # 典型公式Z = sqrt(df)*z_obs，但这里为了简便，我们直接把 sqrt(df) 融到 z_obs 上
+        Z_obs = sqrt(df) * z_obs if df > 0 else z_obs
+
+        # 重采样
+        Z_sampled = Z_obs + np.random.normal(0, 1, 1)[0]
+
+        # shrink tau(M)* z_{alpha/2}, 其中 z_{alpha/2} = norm.ppf(1-alpha/2)
+        z_thresh = self.shrink_tau * norm.ppf(1 - self.alpha / 2)
+
+        # 判断独立: 若 |Z_sampled| <= z_thresh 则认为独立
+        return (abs(Z_sampled) <= z_thresh)
 

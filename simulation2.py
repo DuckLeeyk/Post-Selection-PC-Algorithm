@@ -1,3 +1,8 @@
+"""
+A more complex simulation example for the PC algorithm.
+"""
+
+
 import numpy as np
 from model import PCAlgorithm
 
