@@ -5,6 +5,7 @@ A more complex simulation example for the PC algorithm.
 
 import numpy as np
 from model import PCAlgorithm
+from visualization import visualize_cpdag
 
 
 def generate_complex_data(n=1000, random_state=42):
@@ -59,3 +60,6 @@ pc = PCAlgorithm(X_data, alpha=0.01, ordering=ordering)
 cpdag = pc.fit()
 
 print("最终的 CPDAG 邻接矩阵:\n", cpdag)
+
+# 可视化 CPDAG
+visualize_cpdag(cpdag, ordering=ordering)
