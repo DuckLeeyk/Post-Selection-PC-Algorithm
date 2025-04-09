@@ -239,7 +239,7 @@ class ResampledPC(PCAlgorithm):
     在基础 PC 算法上，实现文档中提出的 Step 1 (重采样和筛选) 与 Step 2 (聚合)。
     """
 
-    def __init__(self, X, alpha=0.05, ordering=None, M=100, c_star=0.01, gamma=0.05):
+    def __init__(self, X, alpha=0.05, ordering=None, M=100, c_star=0.01, gamma=0.05, nu=0.01):
         """
         X: 数据矩阵
         alpha: 原始显著性水平 (如0.05)
@@ -251,6 +251,7 @@ class ResampledPC(PCAlgorithm):
         self.M = M
         self.c_star = c_star
         self.gamma = gamma
+        self.nu = nu
 
         # 存储多次运行的结果(可能含无效CPDAG)
         self.cpdags = []
@@ -266,7 +267,7 @@ class ResampledPC(PCAlgorithm):
         for m in range(self.M):
             # 每次都重新创建一个 PC 对象，但在其中对统计量施加重采样
             pc_obj = PCAlgorithmWithResampledTests(
-                X=self.X, alpha=self.alpha, ordering=self.ordering, M=self.M, c_star=self.c_star
+                X=self.X, alpha=self.alpha, ordering=self.ordering, M=self.M, c_star=self.c_star, nu=self.nu
             )
             # 拟合(执行PC)
             G_m = pc_obj.fit()
@@ -330,7 +331,7 @@ class ResampledPC(PCAlgorithm):
             beta_hat, se_hat = self._estimate_linear_effect(X_reg, y_reg, exposure_idx=list(regressors).index(exposure))
 
             # 在正态假设下，(1-gamma)% 置信区间 ~ beta_hat +- z_{1-gamma/2} * se_hat
-            z_val = norm.ppf(1 - self.gamma / 2)
+            z_val = norm.ppf(1 - (self.gamma - self.nu) / 2)
             interval = (beta_hat - z_val * se_hat, beta_hat + z_val * se_hat)
             intervals.append(interval)
 
@@ -429,10 +430,11 @@ class PCAlgorithmWithResampledTests(PCAlgorithm):
     并且结合文档(1)式中的“阈值收缩”。
     """
 
-    def __init__(self, X, alpha=0.05, ordering=None, M=100, c_star=0.01):
+    def __init__(self, X, alpha=0.05, ordering=None, M=100, c_star=0.01, nu=0.01):
         super().__init__(X, alpha, ordering)
         self.M = M
         self.c_star = c_star
+        self.nu = nu
 
     def _conditional_indep_test(self, i, j, S):
         """
@@ -474,7 +476,7 @@ class PCAlgorithmWithResampledTests(PCAlgorithm):
         shrink_tau = self.c_star * (np.log(self.n) / self.M)**(1/L)
 
         # shrink tau(M)* z_{alpha/2}, 其中 z_{alpha/2} = norm.ppf(1-alpha/2)
-        z_thresh = shrink_tau * norm.ppf(1 - self.alpha / 2)
+        z_thresh = shrink_tau * norm.ppf(1 - self.nu / (2*L))
 
         # 判断独立: 若 |Z_sampled| <= z_thresh 则认为独立
         return (abs(Z_sampled) <= z_thresh)
