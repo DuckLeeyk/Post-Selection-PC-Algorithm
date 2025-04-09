@@ -3,7 +3,7 @@ A simple simulation example for the PC algorithm.
 """
 
 import numpy as np
-from model import PCAlgorithm
+from model_v2_0 import PCAlgorithm
 
 if __name__ == "__main__":
     # 这里给出一个简单的随机数据示例

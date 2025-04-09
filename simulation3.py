@@ -4,7 +4,7 @@ A 10-variable simulation example for resampled PC algorithm.
 
 
 import numpy as np
-from model import ResampledPC
+from model_v2_0 import ResampledPC
 
 
 def generate_data_10vars(n=2000, random_state=12345):
@@ -67,8 +67,8 @@ rpc = ResampledPC(
     X=data_10,
     alpha=0.02,  # 可调
     ordering=ordering_10,
-    M=50,  # 重采样次数
-    shrink_tau=0.8,  # 收缩参数
+    M=200,  # 重采样次数
+    c_star=0.01,
     gamma=0.05  # 用于置信区间的置信水平
 )
 

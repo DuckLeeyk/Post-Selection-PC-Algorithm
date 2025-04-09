@@ -4,7 +4,7 @@ A more complex simulation example for the PC algorithm.
 
 
 import numpy as np
-from model import PCAlgorithm
+from model_v2_0 import PCAlgorithm
 from visualization import visualize_cpdag
 
 
