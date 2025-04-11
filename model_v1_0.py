@@ -171,7 +171,6 @@ class PCAlgorithm:
         Z = sqrt(df) * z
 
         # 双侧检验
-        from scipy.stats import norm
         p_value = 2 * (1 - norm.cdf(abs(Z)))
 
         return p_value > self.alpha

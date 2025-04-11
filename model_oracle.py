@@ -1,7 +1,7 @@
 import numpy as np
 import statsmodels.api as sm
 
-def oracle(sample_matrix, dag, dependent_idx, target_idx):
+def oracle_pc(sample_matrix, dag, exposure, outcome):
     """
     对于给定的样本矩阵和变量间的DAG邻接矩阵，
     以 dependent_idx 对应的变量作为因变量，
@@ -19,6 +19,10 @@ def oracle(sample_matrix, dag, dependent_idx, target_idx):
         coeff: 目标变量对应的回归系数（float）
         std_err: 目标变量对应的标准误（float）
     """
+
+    dependent_idx = outcome - 1
+    target_idx = exposure - 1
+
     # 找到 target_idx 变量的父节点：即 dag[:, target_idx] 为 1 的那些变量
     parent_idxs = list(np.where(dag[:, target_idx] == 1)[0])
 
@@ -40,4 +44,4 @@ def oracle(sample_matrix, dag, dependent_idx, target_idx):
     target_coefficient = model.params[0]
     target_std_err = model.bse[0]
 
-    return target_coefficient, target_std_err
+    return (target_coefficient - 1.96*target_std_err, target_coefficient + 1.96*target_std_err)

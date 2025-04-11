@@ -171,7 +171,6 @@ class PCAlgorithm:
         Z = sqrt(df) * z
 
         # 双侧检验
-        from scipy.stats import norm
         p_value = 2 * (1 - norm.cdf(abs(Z)))
 
         return p_value > self.alpha
@@ -305,7 +304,8 @@ class ResampledPC(PCAlgorithm):
         outcome = outcome - 1
 
         if len(self.cpdags) == 0:
-            raise ValueError("尚未发现任何有效CPDAG，请先调用 fit_resampling().")
+            print("尚未发现任何有效CPDAG，请先调用 fit_resampling().")
+            return None
 
         # 准备一个列表，存放所有区间
         intervals = []
@@ -473,6 +473,7 @@ class PCAlgorithmWithResampledTests(PCAlgorithm):
 
         # 计算shrink tau(M)
         L = (self.d*self.d-1) * (self.max_adjacent_edges()+1) / 2
+        # L = (self.d * self.d - 1) * (7 + 1) / 2
         shrink_tau = self.c_star * (np.log(self.n) / self.M)**(1/L)
 
         # shrink tau(M)* z_{alpha/2}, 其中 z_{alpha/2} = norm.ppf(1-alpha/2)
