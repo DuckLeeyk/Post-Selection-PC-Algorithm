@@ -74,11 +74,11 @@ def generate_dense_dag_data(n=1000, seed=42):
 
 if __name__ == "__main__":
 
-    for seed in range(3):
+    for seed in range(1, 501):
 
         X_data, W_adj = generate_dense_dag_data(n=500, seed=seed)
 
         # 保存生成的数据和邻接矩阵
-        os.makedirs(os.path.join("simulation/", str(seed)), exist_ok=True)
+        os.makedirs(os.path.join("simulation/data1", str(seed)), exist_ok=True)
         np.save(f"simulation/data1/{seed}/X_data_seed_{seed}.npy", X_data)
         np.save(f"simulation/data1/{seed}/W_adj_seed_{seed}.npy", W_adj)

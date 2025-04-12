@@ -23,8 +23,12 @@ def oracle_pc(sample_matrix, dag, exposure, outcome):
     dependent_idx = outcome - 1
     target_idx = exposure - 1
 
-    # 找到 target_idx 变量的父节点：即 dag[:, target_idx] 为 1 的那些变量
-    parent_idxs = list(np.where(dag[:, target_idx] == 1)[0])
+    # # 找到 target_idx 变量的父节点：即 dag[:, target_idx] 为 1 的那些变量
+    # parent_idxs = list(np.where(dag[:, dependent_idx] != 0)[0])
+
+    parent_dependent_idxs = list(np.where(dag[:, dependent_idx] != 0)[0])
+    parent_target_idxs = list(np.where(dag[:, target_idx] != 0)[0])
+    parent_idxs = list(set(parent_dependent_idxs + parent_target_idxs))
 
     # 构造自变量索引集合：目标变量及其父节点
     # 注意：保证目标变量出现在自变量的第一位，便于后续提取其回归系数和标准误

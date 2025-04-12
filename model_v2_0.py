@@ -164,7 +164,7 @@ class PCAlgorithm:
             return True
 
         # Fisher's Z 检验
-        z = 0.5 * log((1 + corr) / (1 - corr))
+        z = log((1 + corr) / (1 - corr))
         # 自由度近似为 n - |S| - 3
         df = self.n - len(S) - 3
         # Z-score
@@ -463,7 +463,7 @@ class PCAlgorithmWithResampledTests(PCAlgorithm):
         if abs(corr) > 0.999999:
             corr = 0.999999 * np.sign(corr)
 
-        z_obs = 0.5 * log((1 + corr) / (1 - corr)) if abs(corr) < 1 else np.inf
+        z_obs = log((1 + corr) / (1 - corr)) if abs(corr) < 1 else np.inf
         df = self.n - len(S) - 3
         # 典型公式Z = sqrt(df)*z_obs，但这里为了简便，我们直接把 sqrt(df) 融到 z_obs 上
         Z_obs = sqrt(df) * z_obs if df > 0 else z_obs
