@@ -3,7 +3,7 @@ import pandas as pd
 import numpy as np
 
 # 从 CSV 文件中加载数据
-df = pd.read_csv('simulation/data1/summary.csv')
+df = pd.read_csv('simulation/data1/summary_resample0.05.csv')
 
 # 方法及对应的区间下界和上界列名
 methods = {

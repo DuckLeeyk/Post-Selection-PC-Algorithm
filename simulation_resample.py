@@ -6,7 +6,7 @@ from model_v2_0 import ResampledPC
 ordering_10 = [0, 0, 0, 1, 1, 1, 1, 1, 2, 2]
 
 results = []
-for seed in range(1, 51):
+for seed in range(1, 501):
 
     X_data = np.load(f"simulation/data1/{seed}/X_data_seed_{seed}.npy")
     W_adj = np.load(f"simulation/data1/{seed}/W_adj_seed_{seed}.npy")
@@ -18,16 +18,14 @@ for seed in range(1, 51):
         alpha=100,  # 实际未使用该参数
         ordering=ordering_10,
         M=100,  # 重采样次数
-        c_star=0.06,
+        c_star=0.05,
         gamma=0.05,  # 用于置信区间的置信水平
         nu = 0.025
     )
     valid_cpdags = rpc.fit_resampling()
     valid_counts = len(valid_cpdags)
-    print("valid counts: ", valid_counts)
+    print(f"finished seed{seed}, valid counts: ", valid_counts)
     CI_resample = rpc.aggregate_confidence_intervals(exposure=6, outcome=10)
-
-    print("finished seed", seed)
 
     # 如果方法返回None则对应的上下界记为NaN
     def unpack_interval(ci):
@@ -46,4 +44,4 @@ for seed in range(1, 51):
 
 # 汇总至DataFrame
 df = pd.DataFrame(results)
-# df.to_csv("simulation/data1/summary.csv", index=False)
+df.to_csv("simulation/data1/summary_resample0.05.csv", index=False)
