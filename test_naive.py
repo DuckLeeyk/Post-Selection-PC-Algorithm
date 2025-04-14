@@ -1,16 +1,40 @@
-# python
-import pandas as pd
 import numpy as np
+import pandas as pd
+from model_naive import naive_ci_using_pc
 
-# 从 CSV 文件中加载数据
-df = pd.read_csv('simulation/data1/summary_resample0.05.csv')
+ordering_10 = [0, 0, 0, 1, 1, 1, 1, 1, 2, 2]
+
+results = []
+for seed in range(1, 501):
+
+    X_data = np.load(f"simulation/data1/{seed}/X_data_seed_{seed}.npy")
+    W_adj = np.load(f"simulation/data1/{seed}/W_adj_seed_{seed}.npy")
+
+    w_true = W_adj[5, 9]
+
+    CI_naive = naive_ci_using_pc(X_data, alpha=0.01, ordering=ordering_10, exposure=6, outcome=10)
+    print("finished seed", seed)
+
+    # 如果方法返回None则对应的上下界记为NaN
+    def unpack_interval(ci):
+        if ci is None:
+            return (np.nan, np.nan)
+        return ci
+    naive_lower, naive_upper = unpack_interval(CI_naive)
+    results.append({
+        "seed": seed,
+        "w_true": w_true,
+        "naive_lower": naive_lower,
+        "naive_upper": naive_upper,
+    })
+
+# 汇总至DataFrame
+df = pd.DataFrame(results)
+
 
 # 方法及对应的区间下界和上界列名
 methods = {
-    # "oracle": ("oracle_lower", "oracle_upper"),
-    # "naive5": ("naive5_lower", "naive5_upper"),
-    # "naive1": ("naive1_lower", "naive1_upper"),
-    "resample": ("resample_lower", "resample_upper")
+    "naive": ("naive_lower", "naive_upper"),
 }
 
 results = {}

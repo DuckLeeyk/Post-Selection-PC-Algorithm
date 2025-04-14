@@ -1,6 +1,6 @@
 import numpy as np
 import pandas as pd
-from model_v2_0 import ResampledPC
+from model_v3_2 import ResampledPC
 
 
 ordering_10 = [0, 0, 0, 1, 1, 1, 1, 1, 2, 2]
@@ -18,7 +18,7 @@ for seed in range(1, 501):
         alpha=100,  # 实际未使用该参数
         ordering=ordering_10,
         M=100,  # 重采样次数
-        c_star=0.05,
+        c_star=0.04,
         gamma=0.05,  # 用于置信区间的置信水平
         nu = 0.025
     )
@@ -44,4 +44,4 @@ for seed in range(1, 501):
 
 # 汇总至DataFrame
 df = pd.DataFrame(results)
-df.to_csv("simulation/data1/summary_resample0.05.csv", index=False)
+df.to_csv("simulation/data1/summary_resample004.csv", index=False)

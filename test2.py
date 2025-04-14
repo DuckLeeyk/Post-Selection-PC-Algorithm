@@ -5,7 +5,7 @@ A more complex simulation example for the PC algorithm.
 
 import numpy as np
 from model_v2_0 import PCAlgorithm
-from visualization import visualize_cpdag
+from plot_visualization import visualize_cpdag
 
 
 def generate_complex_data(n=1000, random_state=42):
